@@ -4,13 +4,11 @@
 #include "kernel/fs.h"
 
 //echo > PubxP7FB/p3XBYgjG
-char buf[512];
-char fileBuf[512];
-
-void find(char *path, char *filename,  char * fileOrgName) {
+static char buf[512];
+void find(char *path, char *filename) {
   char *p;
-  char *fileP;
-  int fd;
+  char *pathP;
+  int i, fd;
   struct dirent de;
   struct stat st;
 
@@ -28,13 +26,24 @@ void find(char *path, char *filename,  char * fileOrgName) {
   }
 
   switch (st.type) {
-    case T_FILE:      
-      if (strcmp(path, filename) == 0) {
+    case T_FILE:    
+    	
+      pathP = path;
+      for(i=strlen(path); i>0; i--)
+      {
+          if(path[i] == '/')
+          {
+             pathP = &path[i+1];
+             break;
+          }
+      }
+        
+      if (strcmp(pathP, filename) == 0) {
         printf("%s\n", path);
       }
       else
       {
-         //printf("7 path=%s flie=%s\n", path, filename);
+         //printf("6 path=%s flie=%s\n", path, filename);
       }
       break;
 
@@ -44,16 +53,12 @@ void find(char *path, char *filename,  char * fileOrgName) {
         break;
       }
       
-      strcpy(fileBuf, path);
-      fileP = fileBuf + strlen(path);
-      *fileP++ = '/';
-      strcpy(fileP, fileOrgName);         
-      //printf("2 path=%s flie=%s fileBuf=%s\n", path, filename, fileBuf);
       
       strcpy(buf, path);
       p = buf + strlen(path);
       *p++ = '/';
-      //printf("3 buf=%s DIRSIZ=%d\n", buf, DIRSIZ);
+      //printf("2 buf=%s DIRSIZ=%d\n", buf, DIRSIZ);
+      
       
       while (read(fd, &de, sizeof(de)) == sizeof(de)) {
         if (de.inum == 0) {
@@ -61,21 +66,21 @@ void find(char *path, char *filename,  char * fileOrgName) {
         }
         
         //memmove(p, de.name, DIRSIZ);
-        //p[DIRSIZ] = 0;   
-        
+        //p[DIRSIZ] = 0;           
         strcpy(p, de.name);     
-        //printf("4 buf=%s\n", buf);
+        //printf("3 buf=%s\n", buf);
       
         if (stat(buf, &st) < 0) {
           printf("find: cannot stat %s\n", buf);
           continue;
         }
+        
         if (strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0) {
           continue;
         }  
-        //printf("5 buf=%s flie=%s fileBuf=%s\n", buf, filename, fileBuf);
-        find(buf, fileBuf, fileOrgName);
-        //printf("6\n");
+        //printf("4 buf=%s flie=%s \n", buf, filename);
+        find(buf, filename);
+        //printf("5\n");
       }
       break;
   }
@@ -89,8 +94,8 @@ int main(int argc, char * * argv) {
     exit(1);
   }
 
-  printf("argv[2]=%s\n",argv[2]);
-  find(argv[1], argv[2], argv[2]);
+  //printf("argv[2]=%s\n",argv[2]);
+  find(argv[1], argv[2]);
 
   exit(0);
 }
