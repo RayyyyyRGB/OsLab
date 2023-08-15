@@ -1,0 +1,79 @@
+1.按之前的系统调用的操作步骤：int sigreturn(void);
+int sigalarm(int,void*);。。。。等等
+2.proc.h
+struct proc {
+  ......
+  int interval;                // interval of alarm
+  int since_interval;          // last call until now
+  void (*handler)();           // function pointer
+  int running_hand;            // flag of running
+  struct trapframe trapframe_cp;  //copy of trapframe_cp
+};
+3.
+sysproc.c
+uint64
+sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+  p->since_interval = 0;
+  *(p->trapframe) = p->trapframe_cp;
+  p->running_hand = 0;
+  return 0;
+}
+
+uint64
+sys_sigalarm(void)
+{
+  int interval;
+  uint64 pointer;
+  if(argint(0, &interval) < 0)
+    return -1;
+  if(interval == 0)
+    return 0;
+  if(argaddr(1, &pointer) < 0)
+    return -1;
+  myproc()->handler = (void *)pointer;
+  myproc()->since_interval = 0;
+  myproc()->running_hand = 0;
+  myproc()->interval = interval;
+  return 0;
+}
+
+proc.c
+static struct proc*
+allocproc(void)
+{
+  ....
+found:
+  p->pid = allocpid();
+  p->interval = 0;
+  p->since_interval = 0;
+  p->handler = 0;
+  ....
+}
+
+
+trap.c
+void
+usertrap(void)
+{
+  .......
+  // give up the CPU if this is a timer interrupt.
+  if(which_dev == 2)
+  {
+    if(p->interval != 0)
+    {
+      if(!p->running_hand)
+        p->since_interval = p->since_interval + 1;
+      if(!p->running_hand && p->since_interval == p->interval)
+      {
+        printf("alarm!\n");
+        p->running_hand = 1;
+        p->trapframe_cp = *(p->trapframe);
+        p->trapframe->epc = (uint64)p->handler;
+      }
+    }
+    yield();
+  }
+  ......
+}

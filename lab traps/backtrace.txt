@@ -1,0 +1,33 @@
+1.在kernel/defs.h中添加backtrace的原型，以便在sys_sleep中调用backtrace。
+GCC编译器将当前执行函数的帧指针存储在寄存器s0中。在kernel/riscv.h中添加以下函数：
+static inline uint64
+r_fp()
+{
+  uint64 x;
+  asm volatile("mv %0, s0" : "=r" (x) );
+  return x;
+}
+2.
+kernel/printf.c中加：
+void
+backtrace(void)
+{
+  printf("backtrace:\n");
+
+  uint64 addr = r_fp();
+  while (PGROUNDUP(addr) - PGROUNDDOWN(addr) == PGSIZE)
+  {
+    uint64 ret_addr = *(uint64 *)(addr - 8);
+    printf("%p\n", ret_addr);
+    addr = *((uint64 *)(addr - 16));
+  }
+  
+}
+
+sysproc.c中加：
+uint64
+sys_sleep(void)
+{
+  backtrace();
+  
+}
