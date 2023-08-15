@@ -1,0 +1,236 @@
+1.vm.c
+int
+uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
+{
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+  // char *mem;
+
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
+    // 清空页表项中的PTE_W
+    *pte &= ~PTE_W;
+    *pte |= PTE_COW;
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte);
+    // 这里没有申请新的物理页 没有必要释放pa
+    // 将原来的物理页直接映射到子进程的页表中 标志位设置不可写 COW
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
+      goto err;
+    }
+    addref(pa);
+    // 
+    // 注释分配一个物理页的代码
+    // if((mem = kalloc()) == 0)
+    //   goto err;
+    // memmove(mem, (char*)pa, PGSIZE);
+    // if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
+    //   kfree(mem);
+    //   goto err;
+    // }
+  }
+  return 0;
+
+ err:
+  uvmunmap(new, 0, i / PGSIZE, 1);
+  return -1;
+}
+2.trap.c
+usertrap:
+else if(r_scause() == 15){// Store/AMO page fault
+    // 取出无法翻译的地址
+    // printf("cow\n");
+    uint64 va=r_stval();
+    if(handler_cow_pagefault(p->pagetable, va)<0){
+      //杀死进程
+      p->killed=1;
+    }
+
+vm.c定义handler
+// 取出COW的物理页
+// 分配一个新的页映射到进程页表中 并且将原来的物理页拷贝到新的页中
+// 修改页表项的flag 除去COW位 加上write标志位
+int
+handler_cow_pagefault(pagetable_t pagetable, uint64 va)
+{
+  // 取出原来无法翻译的va地址
+  if (va >= MAXVA)
+    return -1;
+  
+  pte_t *pte=walk(pagetable, va, 0);
+
+  if (pte == 0 || (*pte & PTE_COW)==0)
+    return -1;
+
+  uint64 pa=PTE2PA(*pte);
+  
+  // 分配一个新的物理页 将原来物理页中内容拷贝至新物理页
+  pagetable_t new_page=(pte_t*)kalloc();
+  if (new_page==0)
+    return -1;
+  
+  memmove((char*)new_page, (char*)pa, PGSIZE);
+  // 减少原来物理页引用计数
+  kfree((void*)pa);
+  // 将新的物理页映射至页表中 去除COW位 加上write位
+  pte_t flags=PTE_FLAGS(*pte);
+  flags &= ~PTE_COW;
+  flags |= PTE_W;
+  // printf("In cow set:   cow:%d  w:%d\n",flags&PTE_COW, flags&PTE_W);
+  *pte=PA2PTE(new_page) | flags;
+  return 0;
+}
+
+3.kalloc
+#define INDEX(pa) ((pa - KERNBASE)>>12)
+#define INDEXSIZE 32768//由KERNBASE到PHYSTOP共32768个页面
+
+struct {
+  struct spinlock lock;
+  int count[INDEXSIZE];
+} memref;
+
+void
+kinit()
+{
+  initlock(&kmem.lock, "kmem");
+  initlock(&memref.lock,"memref");
+  freerange(end, (void*)PHYSTOP);
+}
+
+void
+freerange(void *pa_start, void *pa_end)
+{
+  char *p;
+  p = (char*)PGROUNDUP((uint64)pa_start);
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  {
+    // printf("%d\n",INDEX((uint64)p));
+    acquire(&memref.lock);
+    memref.count[INDEX((uint64)p)]=1;
+    release(&memref.lock);
+    kfree(p);
+  }
+    // kfree(p);
+}
+
+void addref(uint64 pa)
+{
+  acquire(&memref.lock);
+  memref.count[INDEX(pa)]++;
+  release(&memref.lock);
+}
+
+
+void *
+kalloc(void)
+{
+  struct run *r;
+
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  if(r)
+  {
+    kmem.freelist = r->next;
+    addref((uint64)r);
+  }
+  release(&kmem.lock);
+
+  if(r)
+    memset((char*)r, 5, PGSIZE); // fill with junk
+  return (void*)r;
+}
+
+
+void
+kfree(void *pa)
+{
+  struct run *r;
+  // printf("In kfree:1  %d ref:%d\n",INDEX((uint64)pa),memref.count[INDEX((uint64)pa)]);
+
+  acquire(&memref.lock);
+  if (memref.count[INDEX((uint64)pa)]>1)
+  {
+    --memref.count[INDEX((uint64)pa)];
+    release(&memref.lock);
+    return;
+  }
+  release(&memref.lock);
+  // printf("In kfree:2\n");
+
+  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
+    panic("kfree");
+
+  // Fill with junk to catch dangling refs.
+  memset(pa, 1, PGSIZE);
+
+  r = (struct run*)pa;
+
+  acquire(&memref.lock);
+  if (memref.count[INDEX((uint64)pa)]==0)
+  {
+    release(&memref.lock);
+    panic("kfree");
+  }
+  else if (memref.count[INDEX((uint64)pa)]==1)
+  {
+    --memref.count[INDEX((uint64)pa)];
+    release(&memref.lock);
+    acquire(&kmem.lock);
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+    release(&kmem.lock);
+  }
+  else
+  {
+    release(&memref.lock);
+    panic("kfree");
+  }
+}
+
+4.vm.c
+int
+copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
+{
+  uint64 n, va0, pa0;
+
+  while(len > 0){
+    va0 = PGROUNDDOWN(dstva);
+    pte_t *pte;
+    if (va0 >= MAXVA)
+    {
+      return -1;
+    }
+    
+    if ((pte=walk(pagetable,va0,0))==0)
+    {
+      return -1;
+    }
+    if (*pte & PTE_COW)
+    {
+      if(handler_cow_pagefault(pagetable, va0)<0)
+      {
+        return -1;
+      }
+    }
+    pa0 = walkaddr(pagetable, va0);
+    if(pa0 == 0)
+      return -1;
+    n = PGSIZE - (dstva - va0);
+    if(n > len)
+      n = len;
+    memmove((void *)(pa0 + (dstva - va0)), src, n);
+
+    len -= n;
+    src += n;
+    dstva = va0 + PGSIZE;
+  }
+  return 0;
+}
+
+5.riscv
+#define PTE_COW (1L << 8)
