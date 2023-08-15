@@ -1,0 +1,103 @@
+1. Modify user/user.h:
+   - Add the prototype for the new system call `int trace(int mask);`
+
+2. Modify user/usys.pl:
+   - Add the stub for the new system call `SYS_trace`:
+     ```
+     entry("trace");
+     ```
+
+3. Modify kernel/syscall.h:
+   - Add the system call number for `SYS_trace`:
+     ```
+     #define SYS_trace 22
+     ```
+
+4. Modify kernel/syscall.c:
+   - Add an array of syscall names to index into:
+     ```
+     static char *syscall_names[] = {
+         [SYS_fork] = "fork",
+         [SYS_exit] = "exit",
+         [SYS_wait] = "wait",
+         ...
+         [SYS_trace] = "trace",
+     };
+     ```
+
+   - Modify the `syscall()` function to print the trace output:
+     ```
+
+//added by rqx 2023/7/24
+static const char *syscall_names[] = {
+  [SYS_fork]    "fork",
+  [SYS_exit]    "exit",
+  [SYS_wait]    "wait",
+  [SYS_pipe]    "pipe",
+  [SYS_read]    "read",
+  [SYS_kill]    "kill",
+  [SYS_exec]    "exec",
+  [SYS_fstat]   "fstat",
+  [SYS_chdir]   "chdir",
+  [SYS_dup]     "dup",
+  [SYS_getpid]  "getpid",
+  [SYS_sbrk]    "sbrk",
+  [SYS_sleep]   "sleep",
+  [SYS_uptime]  "uptime",
+  [SYS_open]    "open",
+  [SYS_write]   "write",
+  [SYS_mknod]   "mknod",
+  [SYS_unlink]  "unlink",
+  [SYS_link]    "link",
+  [SYS_mkdir]   "mkdir",
+  [SYS_close]   "close",
+  [SYS_trace]   "trace",
+  
+};
+     void
+     syscall(void)
+     {
+         ...//added by rqx 2023/7/24
+      if (p->trace_mask & (1 << num)) {
+           printf("%d: syscall %s -> %d\n", p->pid, syscall_names[num], p->trapframe->a0);
+         }
+         }
+         ...
+     }
+     ```
+
+5. Modify kernel/sysproc.c:
+   - Add a new variable `trace_mask` to the `proc` structure in kernel/proc.h:
+     ```
+     struct proc {
+         ...
+         int trace_mask; // Trace mask for system call tracing
+         ...
+     };
+     ```
+
+   - Add a new system call `sys_trace()` to implement the `trace()` system call:
+     ```
+     int sys_trace(void)
+{
+   //added by rqx 2023/7/24
+   int mask;
+   if (argint(0, &mask) < 0)
+       return -1;
+   myproc()->trace_mask = mask;
+   return 0;
+}
+     ```
+
+   - Modify the `fork()` function to copy the trace mask from the parent to the child process:
+     ```
+     int
+     fork(void)
+     {
+         ...
+         np->trace_mask = proc->trace_mask;
+         ...
+     }
+     `
+
+``

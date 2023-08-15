@@ -1,0 +1,71 @@
+sysproc.c
+//added by rqx 2023/7/25
+uint64
+sys_sysinfo()
+{
+    uint64 addr; 
+    struct sysinfo info;
+    
+    struct proc *p = myproc();
+    
+    info.freemem = kmemfreecount();      
+    //printf("test sys_sysinfo 1 mem = %d\n",info.freemem);
+    
+    info.nproc = proccount();     
+    //printf("test sys_sysinfo 2 nproc = %d\n",info.nproc);    
+    
+  
+    if(argaddr(0, &addr) < 0)
+       return -1;
+  
+  
+    if(copyout(p->pagetable, addr, (char *)&info, sizeof(info))<0)
+       return -1;
+        
+    //printf("test sys_sysinfo 3\n");
+    return 0;
+}
+
+proc.c
+
+//added by rqx 2023 7/25
+int proccount()
+{
+  int count = 0;
+  struct proc *p;
+  
+  for (p = &proc[0]; p < &proc[NPROC]; p++)
+  {
+    acquire(&p->lock);
+    if (p->state != UNUSED)
+      count++;
+    release(&p->lock);
+  }
+  
+  return count;
+}
+
+kalloc.c
+//added by rqx 2023/7/25
+uint64 kmemfreecount()
+{
+  struct run *r;
+  uint64 count = 0;
+  
+  //printf("test kmemfreecount 1\n");
+  acquire(&kmem.lock);
+  
+  //printf("test kmemfreecount 2\n");
+  for (r = kmem.freelist; r; r = r->next)
+   count ++;
+  
+  //printf("test kmemfreecount 3 count=%d\n",count);
+  release(&kmem.lock);
+  
+  //printf("test kmemfreecount 4\n");
+  return count*PGSIZE;
+}
+
+
+
+
