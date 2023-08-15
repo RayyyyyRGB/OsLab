@@ -1,0 +1,41 @@
+步骤1：本实验实现一个vmprint()函数来遍历页表并打印，在xv6中有个freewalk()函数，实现递归释放页表页，我们可以模仿该函数来写vmprint()函数。
+模仿freewalk()编写vmprint()函数，并添加在kernel/vm.c中。
+
+void 
+printwalk(pagetable_t pagetable, uint level) {
+  char* prefix;
+  if (level == 2) prefix = "..";
+  else if (level == 1) prefix = ".. ..";
+  else prefix = ".. .. ..";
+  for(int i = 0; i < 512; i++){ // 每个页表有512项
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){ // 该页表项有效
+      uint64 pa = PTE2PA(pte); // 将虚拟地址转换为物理地址
+      printf("%s%d: pte %p pa %p\n", prefix, i, pte, pa);
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){ // 有下一级页表
+         printwalk((pagetable_t)pa, level - 1);
+      }
+    }
+  }
+}
+
+void
+vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  printwalk(pagetable, 2);
+}
+
+步骤2：在kernel/defs.h中定义vmprint的原型，以便可以从exec.c调用它。
+步骤3：在exec.c中的返回argc之前插入if (p->pid==1) vmprint(p->pagetable)，以输出第一个进程的页表。
+步骤4：make qemu, 可以看到以下输出，这说明实验成功。
+页表 0x0000000087f6e000
+ ..0: pte 0x0000000021fda801 pa 0x0000000087f6a000
+ .. ..0: pte 0x0000000021fda401 pa 0x0000000087f69000
+ .. .. ..0: pte 0x0000000021fdac1f pa 0x0000000087f6b000
+ .. .. ..1: pte 0x0000000021fda00f pa 0x0000000087f68000
+ .. .. ..2: pte 0x0000000021fd9c1f pa 0x0000000087f67000
+ ..255: pte 0x0000000021fdb401 pa 0x0000000087f6d000
+ .. ..511: pte 0x0000000021fdb001 pa 0x0000000087f6c000
+ .. .. ..509: pte 0x0000000021fdd813 pa 0x0000000087f76000
+ .. .. ..510: pte 0x0000000021fddc07 pa 0x0000000087f77000
+ .. .. ..511: pte 0x0000000020001c0b pa 0x0000000080007000
