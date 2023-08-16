@@ -1,4 +1,4 @@
-ÔÚ kernel/buf.h ÖĞÍê³É£º
+åœ¨ kernel/buf.h ä¸­å®Œæˆï¼š
 struct buf {
   int valid;   // has data been read from disk?
   int disk;    // does disk "own" buf?
@@ -10,18 +10,18 @@ struct buf {
   struct buf *next;
   uchar data[BSIZE];
 
-  uint lastuse_time;  // ¡¾ÉÏ´ÎÊ¹ÓÃÊ±¼äµÄÊ±¼ä´Á¡¿
-  int owner;	// ¡¾µ±Ç°¹éÊôµÄbucket¡¿
+  uint lastuse_time;  // ä¸Šæ¬¡ä½¿ç”¨æ—¶é—´çš„æ—¶é—´æˆ³
+  int owner;	// å½“å‰å½’å±çš„bucket
 };
 
-ÔÚ kernel/bio.c ÖĞÍê³É£º
-Ê×ÏÈ¶¨ÒåNBUCKET±íÊ¾¹ÜÀíµÄbucket¸öÊı£¬²¢ÇÒ¶¨ÒåhashÓ³Éä£¨´ÅÅÌ¿éºÅblocknoµ½bucketºÅ£©
+åœ¨ kernel/bio.c ä¸­å®Œæˆï¼š
+é¦–å…ˆå®šä¹‰NBUCKETè¡¨ç¤ºç®¡ç†çš„bucketä¸ªæ•°ï¼Œå¹¶ä¸”å®šä¹‰hashæ˜ å°„ï¼ˆç£ç›˜å—å·blocknoåˆ°bucketå·ï¼‰
 
 #define NBUCKET 13
 #define BUCKET_HASH(dev, blockno) (blockno % NBUCKET)
 
-bcache½á¹¹ÌåÖĞ¼ÓÈëbucket£¨buffer cacheµÄ¹ÜÀíµ¥Î»£¬½«Ò»¶ÑbufÊı×é×éÖ¯ÔÚÒ»Æğ³ÉÎªbucket£©
-ÒÔ¼° bucket_lock ×÷ÎªÃ¿¸öbucketµÄ»¥³âËø
+bcacheç»“æ„ä½“ä¸­åŠ å…¥bucketï¼ˆbuffer cacheçš„ç®¡ç†å•ä½ï¼Œå°†ä¸€å †bufæ•°ç»„ç»„ç»‡åœ¨ä¸€èµ·æˆä¸ºbucketï¼‰
+ä»¥åŠ bucket_lock ä½œä¸ºæ¯ä¸ªbucketçš„äº’æ–¥é”
 
 struct {
   struct buf buf[NBUF];
@@ -30,45 +30,45 @@ struct {
   struct buf bucket[NBUCKET];
   struct spinlock bucket_locks[NBUCKET];
 } bcache;
-binit º¯Êı£º³õÊ¼»¯ËùÓĞ bucket ÒÔ¼° buffer
+binit å‡½æ•°ï¼šåˆå§‹åŒ–æ‰€æœ‰ bucket ä»¥åŠ buffer
 
 void
 binit(void)
 {
   initlock(&bcache.lock, "bcache_lock");
 
-// ¡¾³õÊ¼»¯Ã¿¸öbucket¡¿
+// åˆå§‹åŒ–æ¯ä¸ªbucket
   char name[20];
   for(int i = 0; i < NBUCKET; i++) {
     snprintf(name, 20, "bucket_lock_%d", i);
     initlock(&bcache.bucket_locks[i], name);
     bcache.bucket[i].next = 0;
   }
-//¡¾³õÊ¼»¯Ã¿¸öbuffer¡¿
+//ã€åˆå§‹åŒ–æ¯ä¸ªbufferã€‘
   for(int i = 0; i < NBUF; i++){
     struct buf *b = &bcache.buf[i];
     initsleeplock(&b->lock, "buffer");
     b->lastuse_time = 0;
     b->refcnt = 0;
-    // ¡¾³õÊ¼£º½«ËùÓĞbuffer×°µ½bucket[0]¡¿
+    // ã€åˆå§‹ï¼šå°†æ‰€æœ‰bufferè£…åˆ°bucket[0]ã€‘
     b->next = bcache.bucket[0].next;
     bcache.bucket[0].next = b;
     b->owner = 0;
   }
 }
 
-bget º¯Êı £¨¸ø¶¨´ÅÅÌ¿é£¬ÔÚbuffer cacheÉÏ·ÖÅäÒ»¸öbuffer½øĞĞ»º´æ£©
+bget å‡½æ•° ï¼ˆç»™å®šç£ç›˜å—ï¼Œåœ¨buffer cacheä¸Šåˆ†é…ä¸€ä¸ªbufferè¿›è¡Œç¼“å­˜ï¼‰
 
 static struct buf*
 bget(uint dev, uint blockno)
 {
 
-  uint index = BUCKET_HASH(dev, blockno);	// ¡¾ÕÒµ½¹éÊôÓÚÄÄ¸öbucket¹ÜÀí¡¿
+  uint index = BUCKET_HASH(dev, blockno);	// æ‰¾åˆ°å½’å±äºå“ªä¸ªbucketç®¡ç†
 
-  acquire(&bcache.bucket_locks[index]); // »ñÈ¡¶ÔÓ¦bucketµÄËø
+  acquire(&bcache.bucket_locks[index]); // è·å–å¯¹åº”bucketçš„é”
 
   // Is the block already cached?
-  // ¡¾ÔÚ¶ÔÓ¦µÄbucketÀïÃæÕÒ£¬ÊÇ·ñÒÑ¾­»º´æÁËÕâ¸ö¿é¡¿
+  // ã€åœ¨å¯¹åº”çš„bucketé‡Œé¢æ‰¾ï¼Œæ˜¯å¦å·²ç»ç¼“å­˜äº†è¿™ä¸ªå—ã€‘
   struct buf *b = bcache.bucket[index].next;
   while(b){
     if(b->dev == dev && b->blockno == blockno){
@@ -80,19 +80,19 @@ bget(uint dev, uint blockno)
     b = b->next;
   }
 
-  // Not cached.Ã»ÓĞ±»»º´æ
-  // ÎÒÃÇĞèÒª´ÓËùÓĞbucketsÖĞ, ÓÃ×î½ü×î¾ÃÎ´Ê¹ÓÃ²ßÂÔ(LRU), Ñ°ÕÒºÏÊÊµÄbufferÀ´»º´æÕâ¸ö¿é,
-  // Õâ±íÃ÷ÎÒÃÇĞèÒª»ñÈ¡ËüÃÇ¶ÔÓ¦µÄbucket_lock.
+  // Not cached.æ²¡æœ‰è¢«ç¼“å­˜
+  // æˆ‘ä»¬éœ€è¦ä»æ‰€æœ‰bucketsä¸­, ç”¨æœ€è¿‘æœ€ä¹…æœªä½¿ç”¨ç­–ç•¥(LRU), å¯»æ‰¾åˆé€‚çš„bufferæ¥ç¼“å­˜è¿™ä¸ªå—,
+  // è¿™è¡¨æ˜æˆ‘ä»¬éœ€è¦è·å–å®ƒä»¬å¯¹åº”çš„bucket_lock.
   
-  // ¡¾Õ¼ÓĞÒ»¸öbucket_lockÊ±, ³¢ÊÔÔÙ»ñÈ¡ÆäËûbucketËøÊÇºÜ²»°²È«µÄ, ºÜÈİÒ×Ñ­»·µÈ´ıÔì³ÉËÀËø, 
-  // ËùÒÔÎÒÃÇÊ×ÏÈÊÍ·Åµ±Ç°»ñÈ¡µÄbucketËø¡¿
+  // ã€å æœ‰ä¸€ä¸ªbucket_lockæ—¶, å°è¯•å†è·å–å…¶ä»–bucketé”æ˜¯å¾ˆä¸å®‰å…¨çš„, å¾ˆå®¹æ˜“å¾ªç¯ç­‰å¾…é€ æˆæ­»é”, 
+  // æ‰€ä»¥æˆ‘ä»¬é¦–å…ˆé‡Šæ”¾å½“å‰è·å–çš„bucketé”ã€‘
   release(&bcache.bucket_locks[index]);
 
-  // ¡¾»ñÈ¡´óËølock¡¿
+  // ã€è·å–å¤§é”lockã€‘
   acquire(&bcache.lock);
 
-  // ¡¾»ñÈ¡´óËøºó, ÔÙ¼ì²éÒ»±éÊÇ·ñÒÑ»º´æ(¿ÉÄÜÓĞÆäËû½ø³ÌËù×öµÄ²Ù×÷)
-  // ·ÀÖ¹³öÏÖÍ¬Ò»¸ö¿é»º´æÔÚ¶à¸öbufferµÄÎÊÌâ¡¿
+  // ã€è·å–å¤§é”å, å†æ£€æŸ¥ä¸€éæ˜¯å¦å·²ç¼“å­˜(å¯èƒ½æœ‰å…¶ä»–è¿›ç¨‹æ‰€åšçš„æ“ä½œ)
+  // é˜²æ­¢å‡ºç°åŒä¸€ä¸ªå—ç¼“å­˜åœ¨å¤šä¸ªbufferçš„é—®é¢˜ã€‘
   b = bcache.bucket[index].next;
   while(b){
     if(b->dev == dev && b->blockno == blockno){
@@ -106,92 +106,92 @@ bget(uint dev, uint blockno)
     b = b->next;
   }
 
-  // Not Cached.ÈÔÈ»Ã»ÓĞ±»»º´æ
-  // ¡¾´ËÊ±ĞèÒª²ÉÓÃLRU»úÖÆÑ¡Ôñ¶ÔÓ¦µÄbuffer¡¿:
+  // Not Cached.ä»ç„¶æ²¡æœ‰è¢«ç¼“å­˜
+  // æ­¤æ—¶éœ€è¦é‡‡ç”¨LRUæœºåˆ¶é€‰æ‹©å¯¹åº”çš„buffer:
   struct buf *before_ans = 0;
   uint min_lastuse_time = 0xffffffff;
   uint owner = -1;
   for(int i = 0; i < NBUCKET; i++){
-    acquire(&bcache.bucket_locks[i]); // »ñÈ¡bucket_lock[i]
-    int flag = 0; // ±ê¼Ç
+    acquire(&bcache.bucket_locks[i]); // è·å–bucket_lock[i]
+    int flag = 0; // æ ‡è®°
     b = &bcache.bucket[i];
     while(b->next) {
       if(b->next->refcnt == 0 && before_ans == 0){	
-      //¡¾»¹Ã»ÕÒµ½Ò»¸öbuffer(before_ans==0), ´ËÊ±Åöµ½Ò»¸ö¿ÕÏĞbuffer, ÔİÊ±×÷Îªbefore_ans¡¿
+      //è¿˜æ²¡æ‰¾åˆ°ä¸€ä¸ªbuffer(before_ans==0), æ­¤æ—¶ç¢°åˆ°ä¸€ä¸ªç©ºé—²buffer, æš‚æ—¶ä½œä¸ºbefore_ans
         before_ans = b;
         min_lastuse_time = b->next->lastuse_time;
         flag = 1;
       }
       else if(b->next->refcnt == 0 && b->next->lastuse_time < min_lastuse_time) {
-      //¡¾ÒÑ¾­ÕÒµ½buffer, µ«ÊÇÅöµ½¿ÕÏĞbuffer, Âú×ãlastuse_time¸üĞ¡, Ó¦¸ÃÓÃÕâ¸ö¡¿
+      //å·²ç»æ‰¾åˆ°buffer, ä½†æ˜¯ç¢°åˆ°ç©ºé—²buffer, æ»¡è¶³lastuse_timeæ›´å°, åº”è¯¥ç”¨è¿™ä¸ª
         before_ans = b;
         min_lastuse_time = b->next->lastuse_time;
         flag = 1;
       }
       b = b->next;
     }
-    if(flag) {  // ¡¾bucket[i]ÕÒµ½ĞÂµÄbuffer¡¿
-      if(owner != -1)	// ÓĞÔİÊ±µÄowner 
-        release(&bcache.bucket_locks[owner]);	// ¡¾ÊÍ·ÅÖ®Ç°µÄowner bucketµÄËø¡¿
-        //¡¾Òª×¢ÒâÒ»Ö±³ÖÓĞµÄÊÇÄ¿Ç°×îĞÂµÄownerµÄËø£¡£¡£¡¡¿
-      owner = i;	// ÉèÖÃĞÂµÄowner
-    } else {  // ¡¾bucket[i]Ã»ÓĞÕÒµ½ĞÂµÄbuffer: ÊÍ·Åbuck_lock[i] (¼ÇµÃÔÚÑ­»·Ò»¿ªÊ¼ÏÈ»ñµÃÁËËø) ¡¿
+    if(flag) {  // bucket[i]æ‰¾åˆ°æ–°çš„buffer
+      if(owner != -1)	// æœ‰æš‚æ—¶çš„owner 
+        release(&bcache.bucket_locks[owner]);	// é‡Šæ”¾ä¹‹å‰çš„owner bucketçš„é”
+        //è¦æ³¨æ„ä¸€ç›´æŒæœ‰çš„æ˜¯ç›®å‰æœ€æ–°çš„ownerçš„é”ï¼ï¼ï¼
+      owner = i;	// è®¾ç½®æ–°çš„owner
+    } else {  // bucket[i]æ²¡æœ‰æ‰¾åˆ°æ–°çš„buffer: é‡Šæ”¾buck_lock[i] (è®°å¾—åœ¨å¾ªç¯ä¸€å¼€å§‹å…ˆè·å¾—äº†é”) 
       release(&bcache.bucket_locks[i]);
     }
   }
-  if(before_ans == 0) {	// ×îÖÕ¶¼Ã»ÓĞÕÒµ½Ò»¸öbuffer
+  if(before_ans == 0) {	// æœ€ç»ˆéƒ½æ²¡æœ‰æ‰¾åˆ°ä¸€ä¸ªbuffer
     panic("bget: No buffer.");
   }
 
   struct buf *ans = before_ans->next;
   
-  if(owner != index) { // ¡¾ÕÒµ½µÄbuffer²»ÔÚµ±Ç°µÄbucket[index]¡¿
-    // buffer´ÓÔ­À´µÄbucket[owner]ÒÆ³ı:
+  if(owner != index) { // æ‰¾åˆ°çš„bufferä¸åœ¨å½“å‰çš„bucket[index]
+    // bufferä»åŸæ¥çš„bucket[owner]ç§»é™¤:
     before_ans->next = ans->next;
     release(&bcache.bucket_locks[owner]);
 
-    // bufferÌí¼Óµ½bucket[index]:
+    // bufferæ·»åŠ åˆ°bucket[index]:
     acquire(&bcache.bucket_locks[index]);
     ans->next = bcache.bucket[index].next;
     bcache.bucket[index].next = ans;
   }
 
-  // bufferÖØÖÃ:
+  // bufferé‡ç½®:
   ans->dev = dev;
   ans->blockno = blockno;
   ans->refcnt = 1;
   ans->valid = 0;
   ans->owner = index;
 
-  release(&bcache.bucket_locks[index]);	// ÊÍ·Åbucket[index]Ëø
-  //¡¾ÎŞÂÛownerµÈ²»µÈÓÚindex£¬Ö´ĞĞµ½´Ë´¦¶¼Ö»³ÖÓĞbucket[index]µÄËø¡¿
-  release(&bcache.lock);	// ÊÍ·Å´óËø
+  release(&bcache.bucket_locks[index]);	// é‡Šæ”¾bucket[index]é”
+  //ã€æ— è®ºownerç­‰ä¸ç­‰äºindexï¼Œæ‰§è¡Œåˆ°æ­¤å¤„éƒ½åªæŒæœ‰bucket[index]çš„é”ã€‘
+  release(&bcache.lock);	// é‡Šæ”¾å¤§é”
   acquiresleep(&ans->lock);
   return ans;
 }
 
-brelse º¯Êı£º
+brelse å‡½æ•°ï¼š
 
 // Release a locked buffer.
 void
 brelse(struct buf *b)
 {
-// ¡¾±ØĞë³ÖÓĞ´óËølock¡¿
+// ã€å¿…é¡»æŒæœ‰å¤§é”lockã€‘
   if(!holdingsleep(&b->lock))
     panic("brelse");
-// »½ĞÑ buffer lock
+// å”¤é†’ buffer lock
   releasesleep(&b->lock);
 
-  uint index = BUCKET_HASH(b->dev, b->blockno);	// ÕÒµ½block¹éÊôÓÚÄÄ¸öbucket
+  uint index = BUCKET_HASH(b->dev, b->blockno);	// æ‰¾åˆ°blockå½’å±äºå“ªä¸ªbucket
   acquire(&bcache.bucket_locks[index]);
   b->refcnt--;
-  if (b->refcnt == 0) {	//Ã»ÓĞ½ø³ÌÒıÓÃÕâ¿ébuffer, ÔòÎª¿ÕÏĞ×´Ì¬, lastuse_timeÉèÎªµ±Ç°Ê±ÖÓ
+  if (b->refcnt == 0) {	//æ²¡æœ‰è¿›ç¨‹å¼•ç”¨è¿™å—buffer, åˆ™ä¸ºç©ºé—²çŠ¶æ€, lastuse_timeè®¾ä¸ºå½“å‰æ—¶é’Ÿ
     b->lastuse_time = ticks;
   }
   release(&bcache.bucket_locks[index]);
 }
 
-×îºó¼ÓÈëÁ½¸öÎ¬»¤blockµÄrefcntµÄº¯Êı£º
+æœ€ååŠ å…¥ä¸¤ä¸ªç»´æŠ¤blockçš„refcntçš„å‡½æ•°ï¼š
 
 void
 bpin(struct buf *b) {
