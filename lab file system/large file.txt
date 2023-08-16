@@ -1,7 +1,7 @@
 1 fs.h
-#define NDIRECT 11	// ¡¾DIRECTÖ±½ÓÓ³ÉäµÄ¿éºÅ£¬ÓÉ12±äÎª11¡¿
-#define NINDIRECT (BSIZE / sizeof(uint))	// Ã¿¸ö¼ä½ÓÓ³ÉäµÄ¿é£¬Ó³Éä¶àÉÙÎïÀí¿é£¨´óĞ¡¹Ì¶¨£©
-#define MAXFILE (NDIRECT + NINDIRECT + NINDIRECT*NINDIRECT)	// ¡¾ÎÄ¼şµÄ×î´ó³¤¶È½øĞĞĞŞ¸Ä¡¿
+#define NDIRECT 11	// DIRECTç›´æ¥æ˜ å°„çš„å—å·ï¼Œç”±12å˜ä¸º11
+#define NINDIRECT (BSIZE / sizeof(uint))	// æ¯ä¸ªé—´æ¥æ˜ å°„çš„å—ï¼Œæ˜ å°„å¤šå°‘ç‰©ç†å—ï¼ˆå¤§å°å›ºå®šï¼‰
+#define MAXFILE (NDIRECT + NINDIRECT + NINDIRECT*NINDIRECT)	// æ–‡ä»¶çš„æœ€å¤§é•¿åº¦è¿›è¡Œä¿®æ”¹
 
 // On-disk inode structure
 struct dinode {
@@ -11,7 +11,7 @@ struct dinode {
   short nlink;          // Number of links to inode in file system
   uint size;            // Size of file (bytes)
   uint addrs[NDIRECT+2];   // Data block addresses
-  // NDIRECT+1 ±äÎª ¡¾NDIRECT+2¡¿
+  // NDIRECT+1 å˜ä¸º NDIRECT+2
 };
 
 2.file.h
